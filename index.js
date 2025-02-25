@@ -29,12 +29,18 @@ async function run() {
 
     // collections
     const productCollection = client.db("productsDb").collection("products");
-
+    const cartCollection = client.db("cartDb").collection("carts");
     // get products from db
     app.get("/products", async (req, res) => {
       const result = await productCollection.find({}).toArray();
 
-      console.log(result);
+      res.json(result);
+    });
+
+    // carts
+    app.post("/carts", async (req, res) => {
+      const cartItem = req.body;
+      const result = await cartCollection.insertOne(cartItem);
       res.json(result);
     });
     console.log(
