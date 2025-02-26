@@ -1,5 +1,5 @@
 const express = require("express");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 require("dotenv").config();
 
@@ -30,6 +30,27 @@ async function run() {
     // collections
     const productCollection = client.db("productsDb").collection("products");
     const cartCollection = client.db("cartDb").collection("carts");
+
+    // post a cart in to api
+    app.post("/carts", async (req, res) => {
+      const cartItem = req.body;
+      const result = await cartCollection.insertOne(cartItem);
+      res.json(result);
+    });
+
+    // get all carts
+    app.get("/carts", async (req, res) => {
+      const email = req.query.email;
+      const result = await cartCollection.find({ email }).toArray();
+      res.json(result);
+    });
+    // delete from carts
+    app.delete("/carts/:id", async (req, res) => {
+      const id = req.params;
+      console.log(id);
+      const result = await cartCollection.deleteOne({ _id: new ObjectId(id) });
+      res.json(result);
+    });
     // get products from db
     app.get("/products", async (req, res) => {
       const result = await productCollection.find({}).toArray();
@@ -37,12 +58,6 @@ async function run() {
       res.json(result);
     });
 
-    // carts
-    app.post("/carts", async (req, res) => {
-      const cartItem = req.body;
-      const result = await cartCollection.insertOne(cartItem);
-      res.json(result);
-    });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
