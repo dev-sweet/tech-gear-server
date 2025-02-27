@@ -28,9 +28,24 @@ async function run() {
     await client.connect();
 
     // collections
+    const userCollection = client.db("usersDb").collection("users");
     const productCollection = client.db("productsDb").collection("products");
     const cartCollection = client.db("cartDb").collection("carts");
 
+    // user api
+    app.get("/users", async (req, res) => {
+      const result = await userCollection.find({}).toArray();
+      res.json(result);
+    });
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const existingUser = await userCollection.findOne({ email: user.email });
+      if (existingUser) {
+        return res.json({ message: "Login successfully!", isertedId: null });
+      }
+      const result = await userCollection.insertOne(user);
+      res.json({ message: "User created successfully.", data: result });
+    });
     // post a cart in to api
     app.post("/carts", async (req, res) => {
       const cartItem = req.body;
