@@ -39,13 +39,27 @@ async function run() {
       }
 
       const token = req.headers.authorization.split(" ")[1];
-      jwt.verify(token, process.env.TOKEN_SECRET, (error, decoded) => {
+      jwt.verify(token, process.env.ACCESS_TOKEN, (error, decoded) => {
         if (error) {
-          return res.status(401).send({ message: "Forbidden access!" });
+          return res.status(403).send({ message: "Forbidden access!" });
         }
         req.decoded = decoded;
         next();
       });
+    };
+
+    // verify admin
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded?.email;
+      console.log(req.decoded.email);
+      const user = await userCollection.findOne({ email });
+
+      if (user?.role !== "admin" && user?.role !== "demo-admin") {
+        return res.status(403).send({ message: "forbidden access!" });
+      }
+
+      req.role = user?.role;
+      next();
     };
     // jwt api
     app.post("/jwt", async (req, res) => {
@@ -58,12 +72,6 @@ async function run() {
     });
 
     // user api
-    // get all users
-    app.get("/users", verifyToken, async (req, res) => {
-      const result = await userCollection.find({}).toArray();
-      res.json(result);
-    });
-
     // post a user
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -75,8 +83,14 @@ async function run() {
       res.json({ message: "User created successfully.", data: result });
     });
 
+    // get all users (only admin cand demo admin can do this)
+    app.get("/users", verifyToken, async (req, res) => {
+      const result = await userCollection.find({}).toArray();
+      res.json(result);
+    });
+
     // delete user
-    app.delete("/users/:id", async (req, res) => {
+    app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(filter);
@@ -108,12 +122,13 @@ async function run() {
         email: req.params.email,
       });
 
-      if (user.role === "admin") {
+      if (user?.role === "admin" || "demo-admin") {
         return res.json({ isAdmin: true });
       }
 
       res.json({ isAdmin: false });
     });
+
     // post a cart in to api
     app.post("/carts", async (req, res) => {
       const cartItem = req.body;
@@ -127,17 +142,27 @@ async function run() {
       const result = await cartCollection.find({ email }).toArray();
       res.json(result);
     });
+
     // delete from carts
-    app.delete("/carts/:id", async (req, res) => {
+    app.delete("/carts/:id", verifyToken, async (req, res) => {
       const id = req.params;
       const filter = { _id: new ObjectId(id) };
       const result = await cartCollection.deleteOne(filter);
       res.json(result);
     });
+
     // get products from db
     app.get("/products", async (req, res) => {
       const result = await productCollection.find({}).toArray();
 
+      res.json(result);
+    });
+
+    // delete product
+    app.delete("/prodcuts/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = productCollection.deleteOne(query);
       res.json(result);
     });
 
