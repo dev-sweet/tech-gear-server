@@ -159,10 +159,10 @@ async function run() {
     });
 
     // delete product
-    app.delete("/prodcuts/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.delete("/products/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
-      const result = productCollection.deleteOne(query);
+      const result = await productCollection.deleteOne(query);
       res.json(result);
     });
 
