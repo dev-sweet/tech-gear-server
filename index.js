@@ -166,6 +166,13 @@ async function run() {
       res.json(result);
     });
 
+    // post a product
+    app.post("/products", verifyToken, verifyAdmin, async (req, res) => {
+      const product = req.body;
+      const result = await productCollection.insertOne(product);
+      res.json(result);
+    });
+
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
