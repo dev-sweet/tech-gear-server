@@ -207,9 +207,11 @@ async function run() {
     });
 
     // payment intent
-    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+    app.post("/create-payment-intent", async (req, res) => {
+      console.log(req.body);
       const { price } = req.body;
       const amount = parseInt(price * 100);
+      console.log(amount);
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: "usd",
@@ -221,7 +223,7 @@ async function run() {
       res.send({ clientSecret: paymentIntent.client_secret });
     });
 
-    // payments
+    // post payment after checkout
     app.post("/payments", verifyToken, async (req, res) => {
       const payment = req.body;
       const result = await paymentCollection.insertOne(payment);
@@ -233,6 +235,16 @@ async function run() {
 
       const deleteResult = await cartCollection.deleteMany(deleteQuery);
       res.json({ result, deleteResult });
+    });
+
+    // payments
+    app.get("/payments/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "Forbidden access!" });
+      }
+      const result = await paymentCollection.find({ email }).toArray();
+      res.json(result);
     });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
