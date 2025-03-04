@@ -157,6 +157,31 @@ async function run() {
 
       res.json(result);
     });
+    // get single product from db
+    app.get("/products/:id", async (req, res) => {
+      const id = req.params.id;
+      const result = await productCollection.findOne({ _id: new ObjectId(id) });
+      res.json(result);
+    });
+
+    // update a product
+    app.put("/products/:id", async (req, res) => {
+      const id = req.params.id;
+      const product = req.body;
+      const updatedDoc = {
+        $set: {
+          product,
+        },
+      };
+      const result = await productCollection.updateOne(
+        {
+          _id: new ObjectId(id),
+        },
+        updatedDoc
+      );
+
+      res.json(result);
+    });
 
     // delete product
     app.delete("/products/:id", verifyToken, verifyAdmin, async (req, res) => {
