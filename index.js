@@ -3,6 +3,8 @@ const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+
 // express app
 const app = express();
 const port = process.env.PORT || 5000;
@@ -31,6 +33,7 @@ async function run() {
     const userCollection = client.db("usersDb").collection("users");
     const productCollection = client.db("productsDb").collection("products");
     const cartCollection = client.db("cartDb").collection("carts");
+    const paymentCollection = client.db("paymentDb").collection("payments");
 
     // verifytoken middlewear
     const verifyToken = (req, res, next) => {
@@ -84,7 +87,7 @@ async function run() {
     });
 
     // get all users (only admin cand demo admin can do this)
-    app.get("/users", verifyToken, async (req, res) => {
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
       const result = await userCollection.find({}).toArray();
       res.json(result);
     });
@@ -98,18 +101,23 @@ async function run() {
     });
 
     // make admin
-    app.patch("/users/admin/:id", async (req, res) => {
-      const id = req.params.id;
-      const filter = { _id: new ObjectId(id) };
-      const updatedDoc = {
-        $set: {
-          role: "admin",
-        },
-      };
+    app.patch(
+      "/users/admin/:id",
+      verifyToken,
+      verifyAdmin,
+      async (req, res) => {
+        const id = req.params.id;
+        const filter = { _id: new ObjectId(id) };
+        const updatedDoc = {
+          $set: {
+            role: "admin",
+          },
+        };
 
-      const result = await userCollection.updateOne(filter, updatedDoc);
-      res.json(result);
-    });
+        const result = await userCollection.updateOne(filter, updatedDoc);
+        res.json(result);
+      }
+    );
 
     // check if user is admin or not
     app.get("/users/admin/:email", verifyToken, async (req, res) => {
@@ -130,14 +138,14 @@ async function run() {
     });
 
     // post a cart in to api
-    app.post("/carts", async (req, res) => {
+    app.post("/carts", verifyToken, async (req, res) => {
       const cartItem = req.body;
       const result = await cartCollection.insertOne(cartItem);
       res.json(result);
     });
 
     // get all carts
-    app.get("/carts", async (req, res) => {
+    app.get("/carts", verifyToken, async (req, res) => {
       const email = req.query.email;
       const result = await cartCollection.find({ email }).toArray();
       res.json(result);
@@ -165,7 +173,7 @@ async function run() {
     });
 
     // update a product
-    app.put("/products/:id", async (req, res) => {
+    app.put("/products/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const product = req.body;
       const updatedDoc = {
@@ -198,6 +206,34 @@ async function run() {
       res.json(result);
     });
 
+    // payment intent
+    app.post("/create-payment-intent", verifyToken, async (req, res) => {
+      const { price } = req.body;
+      const amount = parseInt(price * 100);
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: "usd",
+        payment_method_types: ["card"],
+      });
+
+      console.log("Price:", amount);
+
+      res.send({ clientSecret: paymentIntent.client_secret });
+    });
+
+    // payments
+    app.post("/payments", verifyToken, async (req, res) => {
+      const payment = req.body;
+      const result = await paymentCollection.insertOne(payment);
+      const deleteQuery = {
+        _id: {
+          $in: payment.cartIds.map((id) => new ObjectId(id)),
+        },
+      };
+
+      const deleteResult = await cartCollection.deleteMany(deleteQuery);
+      res.json({ result, deleteResult });
+    });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
