@@ -246,6 +246,28 @@ async function run() {
       const result = await paymentCollection.find({ email }).toArray();
       res.json(result);
     });
+
+    // admin status
+    app.get("/admin-stats", async (req, res) => {
+      const users = await userCollection.estimatedDocumentCount();
+      const products = await productCollection.estimatedDocumentCount();
+      const orders = await paymentCollection.estimatedDocumentCount();
+
+      const result = await productCollection
+        .aggregate([
+          {
+            $group: {
+              _id: null,
+              totalRevenue: { $sum: "$price" },
+            },
+          },
+        ])
+        .toArray();
+
+      const revenue = result.length > 0 ? result[0].totalRevenue : 0;
+
+      res.send({ users, products, orders, revenue });
+    });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
     );
