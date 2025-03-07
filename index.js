@@ -31,14 +31,14 @@ async function run() {
 
     // collections
     const userCollection = client.db("usersDb").collection("users");
-    const productCollection = client.db("productsDb").collection("products");
     const cartCollection = client.db("cartDb").collection("carts");
-    const paymentCollection = client.db("paymentDb").collection("payments");
+    const productCollection = client.db("productsDb").collection("products");
+    const paymentCollection = client.db("productsDb").collection("payments");
 
     // verifytoken middlewear
     const verifyToken = (req, res, next) => {
       if (!req.headers.authorization) {
-        return res.status(401).send({ message: "Forbidden access!" });
+        return res.status(401).send({ message: "Unauthorized access!" });
       }
 
       const token = req.headers.authorization.split(" ")[1];
@@ -267,6 +267,47 @@ async function run() {
       const revenue = result.length > 0 ? result[0].totalRevenue : 0;
 
       res.send({ users, products, orders, revenue });
+    });
+
+    // order stats
+    app.get("/order-stats", async (req, res) => {
+      // db.getSiblingDB("productsDb");
+      const result = await paymentCollection
+        .aggregate([
+          {
+            $unwind: "$productIds",
+          },
+          {
+            $set: {
+              productIds: { $toObjectId: "$productIds" },
+            },
+          },
+          {
+            $lookup: {
+              from: "products",
+              localField: "productIds",
+              foreignField: "_id",
+              as: "products",
+            },
+          },
+          {
+            $unwind: "$products",
+          },
+          {
+            $group: {
+              _id: "$products.category",
+              quantity: {
+                $sum: 1,
+              },
+              revenue: {
+                $sum: "$products.price",
+              },
+            },
+          },
+        ])
+        .toArray();
+
+      res.send(result);
     });
     console.log(
       "Pinged your deployment. You successfully connected to MongoDB!"
