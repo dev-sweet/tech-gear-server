@@ -130,7 +130,9 @@ async function run() {
         email: req.params.email,
       });
 
-      if (user?.role === "admin" || "demo-admin") {
+      console.log(user);
+
+      if (user?.role === "admin" || user?.role === "demo-admin") {
         return res.json({ isAdmin: true });
       }
 
@@ -145,7 +147,7 @@ async function run() {
     });
 
     // get all carts
-    app.get("/carts", verifyToken, async (req, res) => {
+    app.get("/carts", async (req, res) => {
       const email = req.query.email;
       const result = await cartCollection.find({ email }).toArray();
       res.json(result);
@@ -161,8 +163,14 @@ async function run() {
 
     // get products from db
     app.get("/products", async (req, res) => {
+      console.log(req.query);
+      if (req.query.category) {
+        const query = { category: req.query.category };
+        const result = await productCollection.find(query).toArray();
+        return res.json(result);
+      }
       const result = await productCollection.find({}).toArray();
-
+      console.log("requested for products", result);
       res.json(result);
     });
     // get single product from db
