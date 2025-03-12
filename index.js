@@ -32,6 +32,8 @@ async function run() {
     // collections
     const userCollection = client.db("usersDb").collection("users");
     const cartCollection = client.db("cartDb").collection("carts");
+    const blogCollection = client.db("blogDb").collection("blogs");
+    const reviewCollection = client.db("reviewDb").collection("reviews");
     const productCollection = client.db("productsDb").collection("products");
     const paymentCollection = client.db("productsDb").collection("payments");
 
@@ -214,6 +216,54 @@ async function run() {
       res.json(result);
     });
 
+    // get all blogs
+    app.get("/blogs", async (req, res) => {
+      const result = await blogCollection.find({}).toArray();
+      res.json(result);
+    });
+
+    // post a blog
+    app.post("/blogs", async (req, res) => {
+      const blog = req.body;
+      const result = await blogCollection.insertOne(blog);
+      res.json(result);
+    });
+
+    app.put("/blogs/:id", async (req, res) => {
+      const id = req.params.id;
+      const blog = req.body;
+      const query = { _id: new ObjectId(id) };
+      const updatedDoc = {
+        $set: {
+          blog,
+        },
+      };
+
+      app.delete("/blogs/:id", async (req, res) => {
+        const id = req.params.id;
+        const result = await blogCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+
+        res.json(result);
+      });
+
+      const result = await blogCollection.updateOne(query, updatedDoc);
+      res.json(result);
+    });
+
+    // get reviews
+    app.get("/reviews", async (req, res) => {
+      const result = await reviewCollection.find({}).toArray();
+      res.json(result);
+    });
+
+    // post review
+    app.post("/reviews", async (req, res) => {
+      const review = req.body;
+      const result = await reviewCollection.insertOne(review);
+      res.json(result);
+    });
     // payment intent
     app.post("/create-payment-intent", async (req, res) => {
       console.log(req.body);
