@@ -165,14 +165,20 @@ async function run() {
 
     // get products from db
     app.get("/products", async (req, res) => {
-      console.log(req.query);
-      if (req.query.category) {
-        const query = { category: req.query.category };
+      console.log(req.query.searchText);
+
+      let query = {};
+      if (req.query.searchText) {
+        const query = { $in: searchText };
         const result = await productCollection.find(query).toArray();
+        console.log(result);
         return res.json(result);
       }
-      const result = await productCollection.find({}).toArray();
-      console.log("requested for products", result);
+      if (req.query.category) {
+        query.category(req.query.category);
+      }
+
+      const result = await productCollection.find(query).toArray();
       res.json(result);
     });
     // get single product from db
@@ -223,11 +229,13 @@ async function run() {
     });
 
     // post a blog
-    app.post("/blogs", async (req, res) => {
+    app.post("/blogs", verifyToken, verifyAdmin, async (req, res) => {
       const blog = req.body;
       const result = await blogCollection.insertOne(blog);
       res.json(result);
     });
+
+    // update a blog
 
     app.put("/blogs/:id", async (req, res) => {
       const id = req.params.id;
@@ -239,16 +247,17 @@ async function run() {
         },
       };
 
-      app.delete("/blogs/:id", async (req, res) => {
-        const id = req.params.id;
-        const result = await blogCollection.deleteOne({
-          _id: new ObjectId(id),
-        });
+      const result = await blogCollection.updateOne(query, updatedDoc);
+      res.json(result);
+    });
 
-        res.json(result);
+    // delete a blog
+    app.delete("/blogs/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const id = req.params.id;
+      const result = await blogCollection.deleteOne({
+        _id: new ObjectId(id),
       });
 
-      const result = await blogCollection.updateOne(query, updatedDoc);
       res.json(result);
     });
 
@@ -367,9 +376,9 @@ async function run() {
 
       res.send(result);
     });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // await client.close();
   }
