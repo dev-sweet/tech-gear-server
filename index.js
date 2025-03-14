@@ -165,8 +165,6 @@ async function run() {
 
     // get products from db
     app.get("/products", async (req, res) => {
-      console.log(req.query.searchText);
-
       let query = {};
       if (req.query.searchText) {
         const query = { $in: searchText };
@@ -189,7 +187,7 @@ async function run() {
     });
 
     // update a product
-    app.put("/products/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.patch("/products/:id", verifyToken, verifyAdmin, async (req, res) => {
       const id = req.params.id;
       const product = req.body;
       const updatedDoc = {
@@ -228,6 +226,14 @@ async function run() {
       res.json(result);
     });
 
+    // get a single blog
+    app.get("/blogs/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await blogCollection.findOne(query);
+      res.json(result);
+    });
+
     // post a blog
     app.post("/blogs", verifyToken, verifyAdmin, async (req, res) => {
       const blog = req.body;
@@ -237,7 +243,7 @@ async function run() {
 
     // update a blog
 
-    app.put("/blogs/:id", async (req, res) => {
+    app.patch("/blogs/:id", async (req, res) => {
       const id = req.params.id;
       const blog = req.body;
       const query = { _id: new ObjectId(id) };
