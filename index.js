@@ -192,7 +192,7 @@ async function run() {
       const product = req.body;
       const updatedDoc = {
         $set: {
-          product,
+          ...product,
         },
       };
       const result = await productCollection.updateOne(
@@ -249,7 +249,7 @@ async function run() {
       const query = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
-          blog,
+          ...blog,
         },
       };
 
