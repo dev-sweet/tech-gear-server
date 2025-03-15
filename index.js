@@ -165,15 +165,18 @@ async function run() {
 
     // get products from db
     app.get("/products", async (req, res) => {
+      const { searchText, category } = req.query;
+      console.log(category, "category");
+      console.log(req.query, "query");
       let query = {};
-      if (req.query.searchText) {
+      if (searchText) {
         const query = { $in: searchText };
         const result = await productCollection.find(query).toArray();
         console.log(result);
         return res.json(result);
       }
-      if (req.query.category) {
-        query.category(req.query.category);
+      if (category) {
+        query.category = category;
       }
 
       const result = await productCollection.find(query).toArray();
