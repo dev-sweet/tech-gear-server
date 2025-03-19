@@ -19,7 +19,7 @@ const uri = `mongodb+srv://sweetmmjjss:${process.env.DB_PASS}@cluster0.ryfvl.mon
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
-    strict: true,
+    strict: false,
     deprecationErrors: true,
   },
 });
@@ -165,21 +165,58 @@ async function run() {
 
     // get products from db
     app.get("/products", async (req, res) => {
-      const { searchText, category } = req.query;
-      console.log(category, "category");
-      console.log(req.query, "query");
-      let query = {};
-      if (searchText) {
-        const query = { $in: searchText };
-        const result = await productCollection.find(query).toArray();
-        console.log(result);
-        return res.json(result);
-      }
-      if (category) {
-        query.category = category;
+      const {
+        search,
+        category,
+        maxPrice,
+        minPrice,
+        sortByPrice,
+        sortBy,
+        limit,
+        skip,
+      } = req.query;
+
+      const categoryFilter = category ? { category: category } : {};
+      let priceFilter = {};
+      if (minPrice !== undefined && maxPrice !== undefined) {
+        priceFilter = { price: { $gte: minPrice, $lte: maxPrice } };
+      } else if (minPrice !== undefined) {
+        priceFilter = { price: { $gte: minPrice } };
+      } else if (maxPrice !== undefined) {
+        priceFilter = { price: { $gte: maxPrice } };
       }
 
-      const result = await productCollection.find(query).toArray();
+      // Step 3: Build dynamic sort array
+      const sortObject = {};
+
+      // Loop through sortFields array to build the sort object dynamically
+      sortFields.forEach(({ field, order }) => {
+        // Convert "asc" to 1 and "desc" to -1
+        sortObject[field] = order === "desc" ? -1 : 1;
+      });
+      console.log(priceFilter);
+      const result = await productCollection
+        .aggregate([
+          {
+            $match: {
+              $or: [
+                { description: { $regex: search, $options: "i" } }, // Case-insensitive search
+                { name: { $regex: search, $options: "i" } },
+              ],
+            },
+          },
+
+          {
+            $match: categoryFilter,
+          },
+          {
+            $match: priceFilter,
+          },
+          {
+            $sort: {},
+          },
+        ])
+        .toArray();
       res.json(result);
     });
     // get single product from db
