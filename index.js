@@ -165,60 +165,57 @@ async function run() {
 
     // get products from db
     app.get("/products", async (req, res) => {
-      const {
-        search,
-        category,
-        maxPrice,
-        minPrice,
-        sortByPrice,
-        sortBy,
-        limit,
-        skip,
-      } = req.query;
+      const { search, category, maxPrice, minPrice, sortBy, order } = req.query;
 
-      const categoryFilter = category ? { category: category } : {};
-      let priceFilter = {};
-      if (minPrice !== undefined && maxPrice !== undefined) {
-        priceFilter = { price: { $gte: minPrice, $lte: maxPrice } };
-      } else if (minPrice !== undefined) {
-        priceFilter = { price: { $gte: minPrice } };
-      } else if (maxPrice !== undefined) {
-        priceFilter = { price: { $gte: maxPrice } };
+      const maxPriceNum = Number(maxPrice);
+      const minPriceNum = Number(minPrice);
+
+      // search filter
+      const searchFilter = {};
+
+      if (search) {
+        searchFilter.$or = [
+          { description: { $regex: search, $options: "i" } },
+          { name: { $regex: search, $options: "i" } },
+        ];
       }
 
-      // Step 3: Build dynamic sort array
-      const sortObject = {};
+      //category filter
+      const categoryFilter = category ? { category: category } : {};
 
-      // Loop through sortFields array to build the sort object dynamically
-      sortFields.forEach(({ field, order }) => {
-        // Convert "asc" to 1 and "desc" to -1
-        sortObject[field] = order === "desc" ? -1 : 1;
-      });
-      console.log(priceFilter);
+      // filter by max and min price
+      let priceFilter = {};
+      if (!isNaN(minPrice) && !isNaN(maxPrice)) {
+        priceFilter = {
+          price: { $gte: minPriceNum, $lte: maxPriceNum },
+        };
+      } else if (!isNaN(minPrice)) {
+        priceFilter = { price: { $gte: minPriceNum } };
+      } else if (!isNaN(maxPrice)) {
+        priceFilter = { price: { $lte: maxPriceNum } };
+      }
+
+      // declere default sorting object
+      let sortObject = { name: 1 };
+
+      // sorting object dynamically
+      if (sortBy && order) {
+        sortObject = { [sortBy]: order === "desc" ? -1 : 1 };
+      }
+
       const result = await productCollection
         .aggregate([
           {
-            $match: {
-              $or: [
-                { description: { $regex: search, $options: "i" } }, // Case-insensitive search
-                { name: { $regex: search, $options: "i" } },
-              ],
-            },
-          },
-
-          {
-            $match: categoryFilter,
+            $match: { ...searchFilter, ...categoryFilter, ...priceFilter },
           },
           {
-            $match: priceFilter,
-          },
-          {
-            $sort: {},
+            $sort: sortObject,
           },
         ])
         .toArray();
       res.json(result);
     });
+
     // get single product from db
     app.get("/products/:id", async (req, res) => {
       const id = req.params.id;
