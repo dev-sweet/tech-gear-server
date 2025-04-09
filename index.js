@@ -32,6 +32,9 @@ async function run() {
     // collections
     const userCollection = client.db("usersDb").collection("users");
     const cartCollection = client.db("cartDb").collection("carts");
+    const wishlistCollection = client
+      .db("wishlistCollection")
+      .collection("wishlist");
     const blogCollection = client.db("blogDb").collection("blogs");
     const reviewCollection = client.db("reviewDb").collection("reviews");
     const productCollection = client.db("productsDb").collection("products");
@@ -141,7 +144,13 @@ async function run() {
       res.json({ isAdmin: false });
     });
 
-    // post a cart in to api
+    //post wishlist
+    app.post("/wishlist", verifyToken, async (req, res) => {
+      const wishlistItem = req.body;
+      const result = await wishlistCollection.insertOne(wishlistItem);
+      res.json(result);
+    });
+    // post a cart
     app.post("/carts", verifyToken, async (req, res) => {
       const cartItem = req.body;
       const result = await cartCollection.insertOne(cartItem);
@@ -193,6 +202,16 @@ async function run() {
         priceFilter = { price: { $gte: minPriceNum } };
       } else if (!isNaN(maxPrice)) {
         priceFilter = { price: { $lte: maxPriceNum } };
+      }
+
+      // additional filter
+      const additionalFilter = {};
+
+      if (isNewArrival !== undefined) {
+        additionalFilter.isNewArrival = isNewArrival === "true";
+      }
+      if (isTrending !== undefined) {
+        additionalFilter.isTrending = isTrending === "true";
       }
 
       // declere default sorting object
