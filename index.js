@@ -32,9 +32,7 @@ async function run() {
     // collections
     const userCollection = client.db("usersDb").collection("users");
     const cartCollection = client.db("cartDb").collection("carts");
-    const wishlistCollection = client
-      .db("wishlistCollection")
-      .collection("wishlist");
+    const wishlistCollection = client.db("wishlistDb").collection("wishlist");
     const blogCollection = client.db("blogDb").collection("blogs");
     const reviewCollection = client.db("reviewDb").collection("reviews");
     const productCollection = client.db("productsDb").collection("products");
@@ -59,7 +57,6 @@ async function run() {
     // verify admin
     const verifyAdmin = async (req, res, next) => {
       const email = req.decoded?.email;
-      console.log(req.decoded.email);
       const user = await userCollection.findOne({ email });
 
       if (user?.role !== "admin" && user?.role !== "demo-admin") {
@@ -134,9 +131,6 @@ async function run() {
       const user = await userCollection.findOne({
         email: req.params.email,
       });
-
-      console.log(user);
-
       if (user?.role === "admin" || user?.role === "demo-admin") {
         return res.json({ isAdmin: true });
       }
@@ -150,9 +144,43 @@ async function run() {
       const result = await wishlistCollection.insertOne(wishlistItem);
       res.json(result);
     });
+
+    // get all wishlist
+    app.get("/wishlist", verifyToken, async (req, res) => {
+      const email = req.query.email;
+      const result = await wishlistCollection.find({ email }).toArray();
+      res.json(result);
+    });
+
+    // delte wishlist
+    app.delete("/wishlist/:id", verifyToken, async (req, res) => {
+      const id = req.params.id;
+      const result = await wishlistCollection.deleteOne({ id });
+      res.json(result);
+    });
+
     // post a cart
     app.post("/carts", verifyToken, async (req, res) => {
-      const cartItem = req.body;
+      let cartItem = req.body;
+
+      // _id includes means it post from wishlist
+      // if post from wishlist
+      if (cartItem._id) {
+        delete cartItem._id;
+        const deleteResult = await wishlistCollection.deleteOne({
+          id: cartItem.id,
+        });
+
+        if (deleteResult.deletedCount > 0) {
+          const result = await cartCollection.insertOne(cartItem);
+          return res.json(result);
+        }
+
+        return res
+          .status(400)
+          .json({ success: false, message: "Something went wrong!" });
+      }
+
       const result = await cartCollection.insertOne(cartItem);
       res.json(result);
     });
@@ -196,22 +224,12 @@ async function run() {
       let priceFilter = {};
       if (!isNaN(minPrice) && !isNaN(maxPrice)) {
         priceFilter = {
-          price: { $gte: minPriceNum, $lte: maxPriceNum },
+          sellPrice: { $gte: minPriceNum, $lte: maxPriceNum },
         };
       } else if (!isNaN(minPrice)) {
-        priceFilter = { price: { $gte: minPriceNum } };
+        priceFilter = { sellPrice: { $gte: minPriceNum } };
       } else if (!isNaN(maxPrice)) {
-        priceFilter = { price: { $lte: maxPriceNum } };
-      }
-
-      // additional filter
-      const additionalFilter = {};
-
-      if (isNewArrival !== undefined) {
-        additionalFilter.isNewArrival = isNewArrival === "true";
-      }
-      if (isTrending !== undefined) {
-        additionalFilter.isTrending = isTrending === "true";
+        priceFilter = { sellPrice: { $lte: maxPriceNum } };
       }
 
       // declere default sorting object
@@ -337,18 +355,13 @@ async function run() {
     });
     // payment intent
     app.post("/create-payment-intent", async (req, res) => {
-      console.log(req.body);
       const { price } = req.body;
       const amount = parseInt(price * 100);
-      console.log(amount);
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: "usd",
         payment_method_types: ["card"],
       });
-
-      console.log("Price:", amount);
-
       res.send({ clientSecret: paymentIntent.client_secret });
     });
 
