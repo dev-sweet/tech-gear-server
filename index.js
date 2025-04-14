@@ -297,7 +297,7 @@ async function run() {
         ])
         .toArray();
 
-      res.json(result);
+      res.json(result[0]);
     });
 
     // update a product
