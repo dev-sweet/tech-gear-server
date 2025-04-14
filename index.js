@@ -246,6 +246,22 @@ async function run() {
             $match: { ...searchFilter, ...categoryFilter, ...priceFilter },
           },
           {
+            $project: {
+              name: 1,
+              category: 1,
+              basePrice: 1,
+              sellPrice: 1,
+              isNew: 1,
+              isTrending: 1,
+              description: 1,
+              image: 1,
+              discount: 1,
+              avgRating: {
+                $ifNull: [{ $avg: "$reviews.rating" }, 0],
+              },
+            },
+          },
+          {
             $sort: sortObject,
           },
         ])
@@ -256,7 +272,31 @@ async function run() {
     // get single product from db
     app.get("/products/:id", async (req, res) => {
       const id = req.params.id;
-      const result = await productCollection.findOne({ _id: new ObjectId(id) });
+      const result = await productCollection
+        .aggregate([
+          {
+            $match: { _id: new ObjectId(id) },
+          },
+          {
+            $project: {
+              name: 1,
+              category: 1,
+              basePrice: 1,
+              sellPrice: 1,
+              isNew: 1,
+              isTrending: 1,
+              description: 1,
+              image: 1,
+              discount: 1,
+              reviews: 1,
+              avgRating: {
+                $ifNull: [{ $avg: "$reviews.rating" }, 0],
+              },
+            },
+          },
+        ])
+        .toArray();
+
       res.json(result);
     });
 
@@ -294,6 +334,22 @@ async function run() {
       res.json(result);
     });
 
+    // post product review
+    app.post("/products/:productId/reviews", async (req, res) => {
+      const productId = req.params.productId;
+      const review = req.body;
+
+      const result = await productCollection.updateOne(
+        { _id: new ObjectId(productId) },
+        {
+          $push: {
+            reviews: review,
+          },
+        }
+      );
+
+      res.json(result);
+    });
     // get all blogs
     app.get("/blogs", async (req, res) => {
       const result = await blogCollection.find({}).toArray();
