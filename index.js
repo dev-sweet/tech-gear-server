@@ -404,7 +404,7 @@ async function run() {
     });
 
     // post review
-    app.post("/reviews", async (req, res) => {
+    app.post("/reviews", verifyToken, async (req, res) => {
       const review = req.body;
       const result = await reviewCollection.insertOne(review);
       res.json(result);
@@ -435,7 +435,13 @@ async function run() {
       res.json({ result, deleteResult });
     });
 
-    // payments
+    //get all payments
+    app.get("/payments", async (req, res) => {
+      const result = await paymentCollection.find().toArray();
+      res.json(result);
+    });
+
+    //get user payments
     app.get("/payments/:email", verifyToken, async (req, res) => {
       const email = req.params.email;
       if (email !== req.decoded.email) {
@@ -446,7 +452,7 @@ async function run() {
     });
 
     // admin status
-    app.get("/admin-stats", async (req, res) => {
+    app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
       const users = await userCollection.estimatedDocumentCount();
       const products = await productCollection.estimatedDocumentCount();
       const orders = await paymentCollection.estimatedDocumentCount();
