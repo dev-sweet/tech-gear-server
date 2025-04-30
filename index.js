@@ -436,7 +436,7 @@ async function run() {
     });
 
     //get all payments
-    app.get("/payments", async (req, res) => {
+    app.get("/payments", verifyToken, verifyAdmin, async (req, res) => {
       const result = await paymentCollection.find().toArray();
       res.json(result);
     });
@@ -448,6 +448,18 @@ async function run() {
         return res.status(403).send({ message: "Forbidden access!" });
       }
       const result = await paymentCollection.find({ email }).toArray();
+      res.json(result);
+    });
+
+    // change order status
+    app.patch("/payments/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const filter = { _id: new ObjectId(req.params) };
+      const updatedDoc = {
+        $set: {
+          status: req.body.status,
+        },
+      };
+      const result = await paymentCollection.updateOne(filter, updatedDoc);
       res.json(result);
     });
 
@@ -475,7 +487,6 @@ async function run() {
 
     // order stats
     app.get("/order-stats", async (req, res) => {
-      // db.getSiblingDB("productsDb");
       const result = await paymentCollection
         .aggregate([
           {
