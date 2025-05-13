@@ -60,7 +60,7 @@ async function run() {
       const user = await userCollection.findOne({ email });
 
       if (user?.role !== "admin" && user?.role !== "demo-admin") {
-        return res.status(403).send({ message: "forbidden access!" });
+        return res.status(403).send({ message: "Forbidden access!" });
       }
 
       req.role = user?.role;
@@ -70,7 +70,7 @@ async function run() {
     app.post("/jwt", async (req, res) => {
       const user = req.body;
       const token = jwt.sign(user, process.env.ACCESS_TOKEN, {
-        expiresIn: "1h",
+        expiresIn: "12h",
       });
 
       res.json({ token });
@@ -96,6 +96,11 @@ async function run() {
 
     // delete user
     app.delete("/users/:id", verifyToken, verifyAdmin, async (req, res) => {
+      if (req.role === "demo-admin") {
+        return res
+          .status(403)
+          .send({ message: "Demo admin cannot be able delete user!" });
+      }
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
       const result = await userCollection.deleteOne(filter);
@@ -108,6 +113,11 @@ async function run() {
       verifyToken,
       verifyAdmin,
       async (req, res) => {
+        if (req.role === "demo-admin") {
+          return res
+            .status(403)
+            .send({ message: "Demo admin cannot be able make admin!" });
+        }
         const id = req.params.id;
         const filter = { _id: new ObjectId(id) };
         const updatedDoc = {
@@ -302,11 +312,19 @@ async function run() {
 
     // update a product
     app.patch("/products/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const product = await productCollection.findOne({ _id: req.params.id });
+      if (req.role === "demo-admin" && product?.createdBy !== req.decoded) {
+        return res.status(403).send({
+          message:
+            "As a demo admin you cannot update this product.But you can update your own products.",
+        });
+      }
+
       const id = req.params.id;
-      const product = req.body;
+      const updatedProduct = req.body;
       const updatedDoc = {
         $set: {
-          ...product,
+          ...updatedProduct,
         },
       };
       const result = await productCollection.updateOne(
@@ -321,6 +339,17 @@ async function run() {
 
     // delete product
     app.delete("/products/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const product = await productCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
+
+      if (req.role === "demo-admin" && product.createdBy !== req.decoded) {
+        return res.status(403).send({
+          message:
+            "As a demo admin you cannot delete this product.But you can delete your own products.",
+        });
+      }
+
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await productCollection.deleteOne(query);
@@ -372,14 +401,26 @@ async function run() {
     });
 
     // update a blog
+    app.patch("/blogs/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const blog = await blogCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
+      if (
+        req.role === "demo-admin" &&
+        blog.createdBy.email !== req.decoded.email
+      ) {
+        return res.status(403).send({
+          message:
+            "As a demo admin you cannot update this blog.But you can update your own blogs.",
+        });
+      }
 
-    app.patch("/blogs/:id", async (req, res) => {
       const id = req.params.id;
-      const blog = req.body;
+      const newBlog = req.body;
       const query = { _id: new ObjectId(id) };
       const updatedDoc = {
         $set: {
-          ...blog,
+          ...newBlog,
         },
       };
 
@@ -389,6 +430,22 @@ async function run() {
 
     // delete a blog
     app.delete("/blogs/:id", verifyToken, verifyAdmin, async (req, res) => {
+      const blog = await blogCollection.findOne({
+        _id: new ObjectId(req.params.id),
+      });
+
+      console.log(req.decoded);
+
+      if (
+        req.role === "demo-admin" &&
+        blog.createdBy.email !== req.decoded.email
+      ) {
+        return res.status(403).send({
+          message:
+            "As a demo admin you cannot delete this product.But you can delete your own products.",
+        });
+      }
+
       const id = req.params.id;
       const result = await blogCollection.deleteOne({
         _id: new ObjectId(id),
@@ -452,8 +509,9 @@ async function run() {
     });
 
     // change order status
-    app.patch("/payments/:id", verifyToken, verifyAdmin, async (req, res) => {
+    app.patch("/payments/:id", async (req, res) => {
       const filter = { _id: new ObjectId(req.params) };
+      console.log(req.body);
       const updatedDoc = {
         $set: {
           status: req.body.status,
@@ -463,13 +521,13 @@ async function run() {
       res.json(result);
     });
 
-    // admin status
+    //dashboard admin status
     app.get("/admin-stats", verifyToken, verifyAdmin, async (req, res) => {
       const users = await userCollection.estimatedDocumentCount();
       const products = await productCollection.estimatedDocumentCount();
       const orders = await paymentCollection.estimatedDocumentCount();
 
-      const result = await productCollection
+      const result = await paymentCollection
         .aggregate([
           {
             $group: {
@@ -479,13 +537,12 @@ async function run() {
           },
         ])
         .toArray();
-
       const revenue = result.length > 0 ? result[0].totalRevenue : 0;
 
       res.send({ users, products, orders, revenue });
     });
 
-    // order stats
+    //dashboard order stats
     app.get("/order-stats", async (req, res) => {
       const result = await paymentCollection
         .aggregate([
@@ -515,7 +572,7 @@ async function run() {
                 $sum: 1,
               },
               revenue: {
-                $sum: "$products.price",
+                $sum: "$products.sellPrice",
               },
             },
           },
